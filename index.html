@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기어 시뮬레이터</title>
+<style>
+  body { font-family: Arial, "Malgun Gothic", sans-serif; text-align:center; background:#f4f6f8; margin:0; padding:20px; }
+  h1 { margin:5px 0 15px; }
+  canvas { background:white; border:1px solid #aaa; max-width:100%; }
+  .controls { margin:15px auto; padding:15px; background:white; border-radius:10px; max-width:850px; }
+  input { width:70px; padding:6px; margin:4px; }
+  button { padding:8px 14px; margin:4px; cursor:pointer; border:1px solid #999; border-radius:5px; }
+  button:hover { background:#e8e8e8; }
+  #result { font-size:18px; line-height:1.6; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h1>⚙️ 기어 시뮬레이터</h1>
+
+<canvas id="canvas" width="900" height="400"></canvas>
+
+<div class="controls">
+  <div>
+    <label>구동 톱니 <input id="teeth1" type="number" min="4" value="20"></label>
+    <label>종동 톱니 <input id="teeth2" type="number" min="4" value="40"></label>
+  </div>
+  <div>
+    <label>RPM <input id="rpm" type="number" value="100"></label>
+    <label>토크 <input id="torque" type="number" value="10"></label> N·m
+  </div>
+  <div>
+    <button onclick="calculate()">계산</button>
+    <button onclick="start()">시작</button>
+    <button onclick="stop()">정지</button>
+    <button onclick="resetSim()">초기화</button>
+  </div>
+  <div id="result"></div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let running = false;
+let speed = 3;
+
+const g1 = {
+  x: 220, y: 180, radius: 70, teeth: 20, angle: 0, color: "skyblue"
+};
+
+const g2 = {
+  x: 380, y: 180, radius: 90, teeth: 40, angle: 0, color: "orange"
+};
+
+function drawGear(g) {
+  const h = 10;
+  const points = [];
+
+  for (let i = 0; i < g.teeth; i++) {
+    const step = 360 / g.teeth;
+    const angles = [
+      g.angle + i * step,
+      g.angle + (i + 0.25) * step,
+      g.angle + (i + 0.75) * step,
+      g.angle + (i + 1) * step
+    ];
+
+    const radii = [g.radius, g.radius + h, g.radius + h, g.radius];
+
+    for (let j = 0; j < 4; j++) {
+      const a = angles[j] * Math.PI / 180;
+      points.push({
+        x: g.x + radii[j] * Math.cos(a),
+        y: g.y + radii[j] * Math.sin(a)
+      });
+    }
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let p of points.slice(1)) {
+    ctx.lineTo(p.x, p.y);
+  }
+
+  ctx.closePath();
+  ctx.fillStyle = g.color;
+  ctx.fill();
+  ctx.strokeStyle = "black";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(g.x, g.y, 8, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.stroke();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 기어 중심선
+  ctx.beginPath();
+  ctx.moveTo(g1.x, g1.y);
+  ctx.lineTo(g2.x, g2.y);
+  ctx.strokeStyle = "#ccc";
+  ctx.stroke();
+
+  drawGear(g1);
+  drawGear(g2);
+}
+
+function animate() {
+  if (!running) return;
+
+  g1.angle += speed;
+  g2.angle -= speed * (g1.teeth / g2.teeth);
+
+  draw();
+  requestAnimationFrame(animate);
+}
+
+function calculate() {
+  let t1 = Math.max(4, parseInt(document.getElementById("teeth1").value) || 4);
+  let t2 = Math.max(4, parseInt(document.getElementById("teeth2").value) || 4);
+  let rpm = parseFloat(document.getElementById("rpm").value) || 0;
+  let tq = parseFloat(document.getElementById("torque").value) || 0;
+
+  g1.teeth = t1;
+  g2.teeth = t2;
+
+  g1.radius = 30 + t1 * 2;
+  g2.radius = 30 + t2 * 2;
+
+  g2.x = g1.x + g1.radius + g2.radius;
+
+  const ratio = t2 / t1;
+  const outRpm = rpm / ratio;
+  const outTq = tq * ratio;
+
+  document.getElementById("result").innerHTML =
+    `기어비 ${ratio.toFixed(2)}:1<br>` +
+    `출력 RPM ${outRpm.toFixed(1)}<br>` +
+    `출력 토크 ${outTq.toFixed(1)} N·m`;
+
+  draw();
+}
+
+function start() {
+  if (!running) {
+    running = true;
+    animate();
+  }
+}
+
+function stop() {
+  running = false;
+}
+
+function resetSim() {
+  running = false;
+  g1.angle = 0;
+  g2.angle = 0;
+
+  document.getElementById("teeth1").value = 20;
+  document.getElementById("teeth2").value = 40;
+  document.getElementById("rpm").value = 100;
+  document.getElementById("torque").value = 10;
+
+  calculate();
+}
+
+calculate();
+</script>
+
+</body>
+</html>
