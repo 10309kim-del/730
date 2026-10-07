@@ -1,179 +1,732 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>기어 시뮬레이터</title>
-<style>
-  body { font-family: Arial, "Malgun Gothic", sans-serif; text-align:center; background:#f4f6f8; margin:0; padding:20px; }
-  h1 { margin:5px 0 15px; }
-  canvas { background:white; border:1px solid #aaa; max-width:100%; }
-  .controls { margin:15px auto; padding:15px; background:white; border-radius:10px; max-width:850px; }
-  input { width:70px; padding:6px; margin:4px; }
-  button { padding:8px 14px; margin:4px; cursor:pointer; border:1px solid #999; border-radius:5px; }
-  button:hover { background:#e8e8e8; }
-  #result { font-size:18px; line-height:1.6; margin-top:10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기계공학 탭별 맞춤 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        
+        header { text-align: center; margin-bottom: 24px; }
+        header h1 { font-size: 1.8rem; color: #1e293b; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* 탭 스타일 */
+        .tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border); overflow-x: auto; padding-bottom: 4px; }
+        .tab-btn { padding: 12px 20px; border: none; background: none; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; white-space: nowrap; }
+        .tab-btn:hover { color: var(--primary); background: #eff6ff; }
+        .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); background: #ffffff; }
+
+        /* 패널 및 카드 */
+        .tab-content { display: none; background: var(--card-bg); border-radius: 0 0 12px 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .tab-content.active { display: block; }
+
+        .canvas-container { width: 100%; height: 320px; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* 컨트롤 입력 양식 */
+        .control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .label-box { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; font-weight: 600; color: #334155; }
+        input[type="text"], input[type="number"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border 0.2s; }
+        input:focus { border-color: var(--primary); }
+
+        /* 도움말 버튼 */
+        .help-btn { width: 18px; height: 18px; border-radius: 50%; background: #dbeafe; color: var(--primary); border: none; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .help-btn:hover { background: var(--primary); color: white; }
+
+        /* 버튼 양식 */
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .btn { padding: 9px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        /* 결과 창 */
+        .result-box { background: #eff6ff; border-left: 4px solid var(--primary); padding: 16px; border-radius: 4px; font-size: 0.95rem; font-weight: 600; color: #1e40af; line-height: 1.6; }
+
+        /* 도움말 모달 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 24px; border-radius: 12px; max-width: 420px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .modal-header { font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .close-modal { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); }
+    </style>
 </head>
 <body>
 
-<h1>⚙️ 기어 시뮬레이터</h1>
+<div class="container">
+    <header>
+        <h1>⚙️ 기계공학 인터랙티브 시뮬레이터</h1>
+    </header>
 
-<canvas id="canvas" width="900" height="400"></canvas>
+    <!-- 탭 메뉴 -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(event, 'tab1')">⚙️ 기어비 시뮬레이션</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab2')">⚡ 동력/토크 시뮬레이션</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab3')">➰ 벨트-풀리</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab4')">📏 응력-변형률</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab5')">🌀 스프링</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab6')">⏳ 베어링 수명</button>
+    </div>
 
-<div class="controls">
-  <div>
-    <label>구동 톱니 <input id="teeth1" type="number" min="4" value="20"></label>
-    <label>종동 톱니 <input id="teeth2" type="number" min="4" value="40"></label>
-  </div>
-  <div>
-    <label>RPM <input id="rpm" type="number" value="100"></label>
-    <label>토크 <input id="torque" type="number" value="10"></label> N·m
-  </div>
-  <div>
-    <button onclick="calculate()">계산</button>
-    <button onclick="start()">시작</button>
-    <button onclick="stop()">정지</button>
-    <button onclick="resetSim()">초기화</button>
-  </div>
-  <div id="result"></div>
+    <!-- 탭 1. 기어비 시뮬레이션 -->
+    <div id="tab1" class="tab-content active">
+        <div class="canvas-container"><canvas id="canvasGear"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">
+                    <span>톱니수 목록 (콤마 구분)</span>
+                    <button class="help-btn" onclick="showHelp('기어비 (Gear Ratio)', '입력 기어와 출력 기어의 톱니수 비율입니다. 톱니수가 다르면 회전 속도와 전달 토크가 달라집니다.')">?</button>
+                </div>
+                <input type="text" id="gearTeeth" value="12, 24, 36">
+            </div>
+            <div class="input-group">
+                <div class="label-box">
+                    <span>입력 RPM</span>
+                    <button class="help-btn" onclick="showHelp('RPM', '첫 번째 입력 기어의 분당 회전수입니다.')">?</button>
+                </div>
+                <input type="number" id="gearRpm" value="60">
+            </div>
+            <div class="input-group">
+                <div class="label-box">
+                    <span>입력 토크 (N·m)</span>
+                    <button class="help-btn" onclick="showHelp('입력 토크', '첫 번째 기어에 가해지는 회전력입니다.')">?</button>
+                </div>
+                <input type="number" id="gearTq" value="10">
+            </div>
+            <div class="input-group">
+                <div class="label-box">
+                    <span>맞물림 효율 (%)</span>
+                    <button class="help-btn" onclick="showHelp('맞물림 효율', '각 기어 이빨 접촉 시의 동력 전달 효율입니다.')">?</button>
+                </div>
+                <input type="number" id="gearEff" value="98">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcGear()">🧮 기어비 계산</button>
+            <button class="btn btn-success" onclick="toggleGearAnim(true)">▶ 회전 시작</button>
+            <button class="btn btn-danger" onclick="toggleGearAnim(false)">⏹ 정지</button>
+        </div>
+        <div class="result-box" id="resultGear">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 탭 2. 동력/토크 시뮬레이션 -->
+    <div id="tab2" class="tab-content">
+        <div class="canvas-container"><canvas id="canvasPower"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">
+                    <span>토크 (N·m)</span>
+                    <button class="help-btn" onclick="showHelp('토크 (T)', '회전축을 비틀어 돌리는 힘입니다. 높을수록 더 큰 부하를 회전시킬 수 있습니다.')">?</button>
+                </div>
+                <input type="number" id="powT" value="50">
+            </div>
+            <div class="input-group">
+                <div class="label-box">
+                    <span>회전속도 (RPM)</span>
+                    <button class="help-btn" onclick="showHelp('회전속도', '축의 분당 회전수입니다. 속도가 빨라질수록 동일 토크 대비 동력이 커집니다.')">?</button>
+                </div>
+                <input type="number" id="powRpm" value="300">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcPower()">⚡ 동력 계산</button>
+            <button class="btn btn-success" onclick="togglePowerAnim(true)">▶ 축 회전 시작</button>
+            <button class="btn btn-danger" onclick="togglePowerAnim(false)">⏹ 정지</button>
+        </div>
+        <div class="result-box" id="resultPower">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 탭 3. 벨트-풀리 -->
+    <div id="tab3" class="tab-content">
+        <div class="canvas-container"><canvas id="canvasBelt"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">구동 풀리 지름 D1 (mm)</div>
+                <input type="number" id="beltD1" value="100">
+            </div>
+            <div class="input-group">
+                <div class="label-box">종동 풀리 지름 D2 (mm)</div>
+                <input type="number" id="beltD2" value="200">
+            </div>
+            <div class="input-group">
+                <div class="label-box">구동 RPM (N1)</div>
+                <input type="number" id="beltN1" value="120">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcBelt()">🧮 계산하기</button>
+            <button class="btn btn-success" onclick="toggleBeltAnim(true)">▶ 구동 시작</button>
+            <button class="btn btn-danger" onclick="toggleBeltAnim(false)">⏹ 정지</button>
+        </div>
+        <div class="result-box" id="resultBelt">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 탭 4. 응력-변형률 -->
+    <div id="tab4" class="tab-content">
+        <div class="canvas-container"><canvas id="canvasStress"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">인장 하중 F (N)</div>
+                <input type="number" id="stF" value="15000">
+            </div>
+            <div class="input-group">
+                <div class="label-box">단면적 A (mm²)</div>
+                <input type="number" id="stA" value="100">
+            </div>
+            <div class="input-group">
+                <div class="label-box">원래 길이 L (mm)</div>
+                <input type="number" id="stL" value="200">
+            </div>
+            <div class="input-group">
+                <div class="label-box">탄성계수 E (GPa)</div>
+                <input type="number" id="stE" value="100">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcStress()">▶ 인장 테스트 실행</button>
+        </div>
+        <div class="result-box" id="resultStress">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 탭 5. 스프링 -->
+    <div id="tab5" class="tab-content">
+        <div class="canvas-container"><canvas id="canvasSpring"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">스프링 상수 k (N/mm)</div>
+                <input type="number" id="spK" value="20">
+            </div>
+            <div class="input-group">
+                <div class="label-box">변위 x (mm)</div>
+                <input type="number" id="spX" value="30">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcSpring()">▶ 변형 애니메이션 실행</button>
+        </div>
+        <div class="result-box" id="resultSpring">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 탭 6. 베어링 수명 -->
+    <div id="tab6" class="tab-content">
+        <div class="canvas-container"><canvas id="canvasBearing"></canvas></div>
+        <div class="control-grid">
+            <div class="input-group">
+                <div class="label-box">기본 동정격하중 C (N)</div>
+                <input type="number" id="brgC" value="15000">
+            </div>
+            <div class="input-group">
+                <div class="label-box">동등가하중 P (N)</div>
+                <input type="number" id="brgP" value="3000">
+            </div>
+            <div class="input-group">
+                <div class="label-box">회전속도 (RPM)</div>
+                <input type="number" id="brgRpm" value="300">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calcBearing()">🧮 수명 계산</button>
+            <button class="btn btn-success" onclick="toggleBearingAnim(true)">▶ 회전 시작</button>
+            <button class="btn btn-danger" onclick="toggleBearingAnim(false)">⏹ 정지</button>
+        </div>
+        <div class="result-box" id="resultBearing">계산 결과가 여기에 표시됩니다.</div>
+    </div>
+</div>
+
+<!-- 모달 -->
+<div id="helpModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span id="modalTitle">💡 설명</span>
+            <button class="close-modal" onclick="closeHelp()">✕</button>
+        </div>
+        <div id="modalBody" style="font-size: 0.9rem; color: #475569; line-height: 1.5;">내용</div>
+    </div>
 </div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+    const PALETTE = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
+    let lastTime = performance.now();
 
-let running = false;
-let speed = 3;
-
-const g1 = {
-  x: 220, y: 180, radius: 70, teeth: 20, angle: 0, color: "skyblue"
-};
-
-const g2 = {
-  x: 380, y: 180, radius: 90, teeth: 40, angle: 0, color: "orange"
-};
-
-function drawGear(g) {
-  const h = 10;
-  const points = [];
-
-  for (let i = 0; i < g.teeth; i++) {
-    const step = 360 / g.teeth;
-    const angles = [
-      g.angle + i * step,
-      g.angle + (i + 0.25) * step,
-      g.angle + (i + 0.75) * step,
-      g.angle + (i + 1) * step
-    ];
-
-    const radii = [g.radius, g.radius + h, g.radius + h, g.radius];
-
-    for (let j = 0; j < 4; j++) {
-      const a = angles[j] * Math.PI / 180;
-      points.push({
-        x: g.x + radii[j] * Math.cos(a),
-        y: g.y + radii[j] * Math.sin(a)
-      });
+    // 모든 시뮬레이션 애니메이션 중지 처리
+    function stopAllAnimations() {
+        toggleGearAnim(false);
+        togglePowerAnim(false);
+        toggleBeltAnim(false);
+        toggleBearingAnim(false);
+        stressAnim = false;
+        springAnim = false;
     }
-  }
 
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
+    // 탭 전환 처리 (애니메이션 자동 시작 없이 캔버스와 계산식만 로드)
+    function switchTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(tb => tb.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
 
-  for (let p of points.slice(1)) {
-    ctx.lineTo(p.x, p.y);
-  }
+        stopAllAnimations();
 
-  ctx.closePath();
-  ctx.fillStyle = g.color;
-  ctx.fill();
-  ctx.strokeStyle = "black";
-  ctx.stroke();
+        requestAnimationFrame(() => {
+            if(tabId === 'tab1') { calcGear(); }
+            if(tabId === 'tab2') { calcPower(); }
+            if(tabId === 'tab3') { calcBelt(); }
+            if(tabId === 'tab4') { drawStress(); }
+            if(tabId === 'tab5') { drawSpring(); }
+            if(tabId === 'tab6') { calcBearing(); }
+        });
+    }
 
-  ctx.beginPath();
-  ctx.arc(g.x, g.y, 8, 0, Math.PI * 2);
-  ctx.fillStyle = "white";
-  ctx.fill();
-  ctx.stroke();
-}
+    function showHelp(title, desc) {
+        document.getElementById('modalTitle').innerText = '💡 ' + title;
+        document.getElementById('modalBody').innerText = desc;
+        document.getElementById('helpModal').style.display = 'flex';
+    }
+    function closeHelp() { document.getElementById('helpModal').style.display = 'none'; }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function fixDpi(canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return null;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        return ctx;
+    }
 
-  // 기어 중심선
-  ctx.beginPath();
-  ctx.moveTo(g1.x, g1.y);
-  ctx.lineTo(g2.x, g2.y);
-  ctx.strokeStyle = "#ccc";
-  ctx.stroke();
+    // 1. 기어비 시뮬레이션 로직
+    let gearAnim = false, gearAngles = [], gearList = [], gearAnimId = null;
 
-  drawGear(g1);
-  drawGear(g2);
-}
+    function calcGear() {
+        const raw = document.getElementById('gearTeeth').value;
+        gearList = raw.split(',').map(v => parseInt(v.trim())).filter(v => v >= 4);
+        if(gearList.length < 2) return;
 
-function animate() {
-  if (!running) return;
+        const rpmIn = parseFloat(document.getElementById('gearRpm').value) || 0;
+        const tqIn = parseFloat(document.getElementById('gearTq').value) || 0;
+        const effMesh = (parseFloat(document.getElementById('gearEff').value) || 100) / 100;
 
-  g1.angle += speed;
-  g2.angle -= speed * (g1.teeth / g2.teeth);
+        const totalRatio = gearList[gearList.length - 1] / gearList[0];
+        const meshes = gearList.length - 1;
+        const rpmOut = rpmIn / totalRatio;
+        const totalEff = Math.pow(effMesh, meshes);
+        const tqOut = tqIn * totalRatio * totalEff;
 
-  draw();
-  requestAnimationFrame(animate);
-}
+        document.getElementById('resultGear').innerHTML = 
+            `⚙️ <b>기어 구성:</b> ${gearList.join('T → ')}T<br>` +
+            `📊 <b>전체 기어비:</b> ${totalRatio.toFixed(3)} : 1<br>` +
+            `🚀 <b>출력 RPM:</b> ${rpmOut.toFixed(2)} RPM | <b>출력 토크:</b> ${tqOut.toFixed(2)} N·m (효율 ${(totalEff*100).toFixed(1)}%)`;
 
-function calculate() {
-  let t1 = Math.max(4, parseInt(document.getElementById("teeth1").value) || 4);
-  let t2 = Math.max(4, parseInt(document.getElementById("teeth2").value) || 4);
-  let rpm = parseFloat(document.getElementById("rpm").value) || 0;
-  let tq = parseFloat(document.getElementById("torque").value) || 0;
+        if (gearAngles.length !== gearList.length) {
+            gearAngles = new Array(gearList.length).fill(0);
+        }
+        drawGear();
+    }
 
-  g1.teeth = t1;
-  g2.teeth = t2;
+    function drawGear() {
+        const cv = document.getElementById('canvasGear');
+        const ctx = fixDpi(cv);
+        if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight;
+        ctx.clearRect(0, 0, w, h);
 
-  g1.radius = 30 + t1 * 2;
-  g2.radius = 30 + t2 * 2;
+        if(!gearList.length) return;
 
-  g2.x = g1.x + g1.radius + g2.radius;
+        let totalWidth = 0;
+        const radii = gearList.map(teeth => 12 + teeth * 1.8);
+        radii.forEach(r => totalWidth += r * 2);
 
-  const ratio = t2 / t1;
-  const outRpm = rpm / ratio;
-  const outTq = tq * ratio;
+        let scale = Math.min(1, (w - 80) / totalWidth);
+        let currentX = (w - totalWidth * scale) / 2 + radii[0] * scale;
+        const y = h / 2;
 
-  document.getElementById("result").innerHTML =
-    `기어비 ${ratio.toFixed(2)}:1<br>` +
-    `출력 RPM ${outRpm.toFixed(1)}<br>` +
-    `출력 토크 ${outTq.toFixed(1)} N·m`;
+        gearList.forEach((teeth, i) => {
+            const r = radii[i] * scale;
+            if (i > 0) currentX += (radii[i-1] + radii[i]) * scale;
 
-  draw();
-}
+            ctx.save();
+            ctx.translate(currentX, y);
+            ctx.rotate(gearAngles[i] || 0);
 
-function start() {
-  if (!running) {
-    running = true;
-    animate();
-  }
-}
+            ctx.fillStyle = PALETTE[i % PALETTE.length];
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
 
-function stop() {
-  running = false;
-}
+            // 기어 이빨
+            for (let t = 0; t < teeth; t++) {
+                const ang = (t * 2 * Math.PI) / teeth;
+                ctx.save();
+                ctx.rotate(ang);
+                ctx.beginPath();
+                const toothH = 6 * scale;
+                const toothW = (Math.PI * r / teeth) * 0.6;
+                ctx.rect(-toothW / 2, -r - toothH, toothW, toothH + 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
 
-function resetSim() {
-  running = false;
-  g1.angle = 0;
-  g2.angle = 0;
+            // 기어 바디
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
 
-  document.getElementById("teeth1").value = 20;
-  document.getElementById("teeth2").value = 40;
-  document.getElementById("rpm").value = 100;
-  document.getElementById("torque").value = 10;
+            // 살(Spoke)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 2.5 * scale;
+            for(let s = 0; s < 4; s++) {
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(s * Math.PI / 2) * (r * 0.7), Math.sin(s * Math.PI / 2) * (r * 0.7));
+            }
+            ctx.stroke();
 
-  calculate();
-}
+            // 중심 축
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.max(4, r * 0.2), 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
 
-calculate();
+            ctx.restore();
+
+            // 기어 텍스트 표기
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${teeth}T`, currentX, y + r + 22);
+        });
+    }
+
+    function toggleGearAnim(run) {
+        gearAnim = run;
+        if(run) {
+            lastTime = performance.now();
+            if(gearAnimId) cancelAnimationFrame(gearAnimId);
+            animateGear();
+        } else if(gearAnimId) {
+            cancelAnimationFrame(gearAnimId);
+            gearAnimId = null;
+        }
+    }
+
+    function animateGear(now = performance.now()) {
+        if(!gearAnim) return;
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        const rpmIn = parseFloat(document.getElementById('gearRpm').value) || 60;
+        const baseSpeed = (rpmIn * 2 * Math.PI / 60);
+
+        if(gearList.length > 0) {
+            const z1 = gearList[0];
+            gearList.forEach((teeth, i) => {
+                const dir = (i % 2 === 0) ? 1 : -1;
+                const speed = baseSpeed * (z1 / teeth);
+                gearAngles[i] = (gearAngles[i] + speed * dir * dt) % (Math.PI * 2);
+            });
+        }
+
+        drawGear();
+        gearAnimId = requestAnimationFrame(animateGear);
+    }
+
+    // 2. 동력/토크 시뮬레이션 로직
+    let powAnim = false, powAngle = 0, powAnimId = null;
+
+    function calcPower() {
+        const t = parseFloat(document.getElementById('powT').value) || 0;
+        const rpm = parseFloat(document.getElementById('powRpm').value) || 0;
+        const w = 2 * Math.PI * rpm / 60;
+        const p = t * w;
+
+        document.getElementById('resultPower').innerHTML = 
+            `⚡ <b>계산된 동력 (P):</b> ${p.toFixed(2)} W<br>` +
+            `🏎️ <b>kW / 마력(HP) 변환:</b> ${(p/1000).toFixed(3)} kW | ${(p/745.7).toFixed(2)} HP`;
+        drawPower();
+    }
+
+    function drawPower() {
+        const cv = document.getElementById('canvasPower');
+        const ctx = fixDpi(cv);
+        if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight;
+        ctx.clearRect(0,0,w,h);
+
+        const cx = w / 2, cy = h / 2;
+        const t = parseFloat(document.getElementById('powT').value) || 0;
+
+        // 배경 회전가이드
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 80, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 회전축 베이스
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(cx - 150, cy - 10, 300, 20);
+
+        // 동력/토크 회전 디스크
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(powAngle);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 70, 0, Math.PI * 2);
+        ctx.fillStyle = '#2563eb';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 토크 벡터 표시선
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(60, 0);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.restore();
+
+        // 토크 힘 화살표 시각화
+        ctx.beginPath();
+        ctx.arc(cx, cy, 95, 0, Math.PI * 1.5, false);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = Math.min(12, Math.max(3, t / 10));
+        ctx.stroke();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(`Torque: ${t} N·m`, cx - 45, cy + 120);
+    }
+
+    function togglePowerAnim(run) {
+        powAnim = run;
+        if(run) {
+            lastTime = performance.now();
+            if(powAnimId) cancelAnimationFrame(powAnimId);
+            animatePower();
+        } else if(powAnimId) {
+            cancelAnimationFrame(powAnimId);
+            powAnimId = null;
+        }
+    }
+
+    function animatePower(now = performance.now()) {
+        if(!powAnim) return;
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        const rpm = parseFloat(document.getElementById('powRpm').value) || 300;
+        const speed = (rpm * 2 * Math.PI / 60);
+
+        powAngle = (powAngle + speed * dt) % (Math.PI * 2);
+        drawPower();
+        powAnimId = requestAnimationFrame(animatePower);
+    }
+
+    // 3. 벨트-풀리 시뮬레이션
+    let beltAnim = false, beltAngle = 0, beltAnimId = null;
+    function calcBelt() {
+        const d1 = parseFloat(document.getElementById('beltD1').value) || 1;
+        const d2 = parseFloat(document.getElementById('beltD2').value) || 1;
+        const n1 = parseFloat(document.getElementById('beltN1').value) || 0;
+        const n2 = n1 * d1 / d2;
+        const v = Math.PI * d1 * n1 / 60000;
+
+        document.getElementById('resultBelt').innerHTML = `⚙ 종동 RPM: ${n2.toFixed(2)} RPM | 🚀 벨트 속도 v = ${v.toFixed(2)} m/s`;
+        drawBelt();
+    }
+    function drawBelt() {
+        const cv = document.getElementById('canvasBelt');
+        const ctx = fixDpi(cv);
+        if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight;
+        ctx.clearRect(0,0,w,h);
+
+        const d1 = parseFloat(document.getElementById('beltD1').value) || 100;
+        const d2 = parseFloat(document.getElementById('beltD2').value) || 200;
+        const r1 = Math.min(70, Math.max(20, d1 * 0.3));
+        const r2 = Math.min(70, Math.max(20, d2 * 0.3));
+        const x1 = w * 0.3, x2 = w * 0.7, cy = h / 2;
+
+        ctx.beginPath();
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = '#475569';
+        ctx.moveTo(x1, cy - r1); ctx.lineTo(x2, cy - r2);
+        ctx.arc(x2, cy, r2, -Math.PI/2, Math.PI/2);
+        ctx.lineTo(x1, cy + r1);
+        ctx.arc(x1, cy, r1, Math.PI/2, -Math.PI/2);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(x1, cy); ctx.rotate(beltAngle);
+        ctx.beginPath(); ctx.arc(0, 0, r1, 0, Math.PI * 2); ctx.fillStyle = '#f59e0b'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r1, 0); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(x2, cy); ctx.rotate(beltAngle * (d1 / d2));
+        ctx.beginPath(); ctx.arc(0, 0, r2, 0, Math.PI * 2); ctx.fillStyle = '#10b981'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r2, 0); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.restore();
+    }
+    function toggleBeltAnim(run) {
+        beltAnim = run;
+        if(run) { 
+            lastTime = performance.now(); 
+            if(beltAnimId) cancelAnimationFrame(beltAnimId);
+            animateBelt(); 
+        }
+        else if(beltAnimId) {
+            cancelAnimationFrame(beltAnimId);
+            beltAnimId = null;
+        }
+    }
+    function animateBelt(now = performance.now()) {
+        if(!beltAnim) return;
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+        const n1 = parseFloat(document.getElementById('beltN1').value) || 120;
+        beltAngle += (n1 * 2 * Math.PI / 60) * dt;
+        drawBelt();
+        beltAnimId = requestAnimationFrame(animateBelt);
+    }
+
+    // 4. 응력-변형률
+    let stressProg = 0, stressElong = 0, stressAnim = false;
+    function calcStress() {
+        const f = parseFloat(document.getElementById('stF').value) || 0;
+        const a = parseFloat(document.getElementById('stA').value) || 1;
+        const l = parseFloat(document.getElementById('stL').value) || 1;
+        const e = parseFloat(document.getElementById('stE').value) || 1;
+        const stress = f / a;
+        const strain = stress / (e * 1000);
+        stressElong = strain * l;
+        document.getElementById('resultStress').innerHTML = `💥 응력 σ = ${stress.toFixed(2)} MPa | ↔️ 신장량 δ = ${stressElong.toFixed(4)} mm`;
+        stressProg = 0; stressAnim = true; lastTime = performance.now(); animateStress();
+    }
+    function drawStress() {
+        const cv = document.getElementById('canvasStress');
+        const ctx = fixDpi(cv); if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight;
+        ctx.clearRect(0,0,w,h);
+        const x0 = 60, y = h / 2;
+        const baseLen = w * 0.5;
+        // 왕복 운동 계산 (0 ~ 1 ~ 0 사이 왕복)
+        const cycle = stressAnim ? (Math.sin(stressProg * Math.PI * 2 - Math.PI / 2) + 1) / 2 : 0;
+        const deltaVisual = Math.min(w * 0.2, stressElong * 20) * cycle;
+        
+        ctx.fillStyle = '#475569'; ctx.fillRect(x0 - 20, y - 40, 20, 80);
+        ctx.fillStyle = `rgb(${Math.floor(50 + cycle*205)}, 100, 200)`;
+        ctx.fillRect(x0, y - 20, baseLen + deltaVisual, 40);
+    }
+    function animateStress(now = performance.now()) {
+        if(!stressAnim) return;
+        const dt = (now - lastTime) / 1000; lastTime = now;
+        stressProg += dt * 0.5;
+        drawStress();
+        if(stressAnim) requestAnimationFrame(animateStress);
+    }
+
+    // 5. 스프링
+    let springX = 0, springTarget = 0, springT = 0, springAnim = false;
+    function calcSpring() {
+        const k = parseFloat(document.getElementById('spK').value) || 1;
+        const x = parseFloat(document.getElementById('spX').value) || 0;
+        document.getElementById('resultSpring').innerHTML = `🌀 복원력 F = ${(k*x).toFixed(2)} N | 🔋 탄성에너지 U = ${(0.5*k*x*x/1000).toFixed(3)} J`;
+        springTarget = x; springT = 0; springAnim = true; lastTime = performance.now(); animateSpring();
+    }
+    function drawSpring() {
+        const cv = document.getElementById('canvasSpring');
+        const ctx = fixDpi(cv); if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight, cx = w / 2, topY = 30;
+        ctx.clearRect(0,0,w,h);
+        const len = 120 + springX * 2;
+        ctx.fillStyle = '#475569'; ctx.fillRect(cx - 50, topY - 10, 100, 10);
+        ctx.beginPath(); ctx.moveTo(cx, topY);
+        for (let i = 1; i <= 10; i++) {
+            ctx.lineTo(cx + (i % 2 === 0 ? 20 : -20), topY + (len / 10) * i);
+        }
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4; ctx.stroke();
+    }
+    function animateSpring(now = performance.now()) {
+        if(!springAnim) return;
+        const dt = (now - lastTime) / 1000; lastTime = now;
+        springT += dt * 3;
+        // 지속적인 조화 진동 모션
+        springX = springTarget * Math.sin(springT);
+        drawSpring();
+        if (springAnim) requestAnimationFrame(animateSpring);
+    }
+
+    // 6. 베어링
+    let brgAnim = false, brgAngle = 0, brgAnimId = null;
+    function calcBearing() {
+        const c = parseFloat(document.getElementById('brgC').value) || 1;
+        const p = parseFloat(document.getElementById('brgP').value) || 1;
+        const rpm = parseFloat(document.getElementById('brgRpm').value) || 1;
+        const l10h = (Math.pow(c / p, 3) * 1000000) / (60 * rpm);
+        document.getElementById('resultBearing').innerHTML = `⏱️ 수명 L10h = ${l10h.toFixed(1)} 시간 (약 ${(l10h/24/365).toFixed(2)} 년)`;
+        drawBearing();
+    }
+    function drawBearing() {
+        const cv = document.getElementById('canvasBearing');
+        const ctx = fixDpi(cv); if (!ctx) return;
+        const w = cv.clientWidth, h = cv.clientHeight, cx = w / 2, cy = h / 2;
+        ctx.clearRect(0,0,w,h);
+        ctx.beginPath(); ctx.arc(cx, cy, 80, 0, Math.PI * 2); ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 10; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, 45, 0, Math.PI * 2); ctx.strokeStyle = '#475569'; ctx.lineWidth = 8; ctx.stroke();
+        for (let i = 0; i < 8; i++) {
+            const ang = (brgAngle * 0.5) + (i * Math.PI * 2 / 8);
+            ctx.beginPath(); ctx.arc(cx + 62.5 * Math.cos(ang), cy + 62.5 * Math.sin(ang), 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#f59e0b'; ctx.fill();
+        }
+    }
+    function toggleBearingAnim(run) {
+        brgAnim = run;
+        if(run) { 
+            lastTime = performance.now(); 
+            if(brgAnimId) cancelAnimationFrame(brgAnimId);
+            animateBearing(); 
+        }
+        else if(brgAnimId) {
+            cancelAnimationFrame(brgAnimId);
+            brgAnimId = null;
+        }
+    }
+    function animateBearing(now = performance.now()) {
+        if(!brgAnim) return;
+        const dt = (now - lastTime) / 1000; lastTime = now;
+        const rpm = parseFloat(document.getElementById('brgRpm').value) || 300;
+        brgAngle += (rpm * 2 * Math.PI / 60) * dt;
+        drawBearing();
+        brgAnimId = requestAnimationFrame(animateBearing);
+    }
+
+    // 페이지 로드시 기본 그래픽만 표시하고 자동 시작 중지
+    window.onload = () => {
+        calcGear();
+    };
 </script>
-
 </body>
 </html>
